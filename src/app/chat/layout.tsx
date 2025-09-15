@@ -25,13 +25,14 @@ export default async function ChatLayout({
   }
 
   return (
-    <ChatProvider>
-      <SidebarProvider>
-        <ChatSidebar {...userInfo} />
-        <SidebarInset>
-          {children}
-        </SidebarInset>
-      </SidebarProvider>
-    </ChatProvider>
+
+      <ChatProvider>
+        <SidebarProvider>
+          <ChatSidebar {...userInfo} />
+          <SidebarInset>
+            {children}
+          </SidebarInset>
+        </SidebarProvider>
+      </ChatProvider>
   )
 }
