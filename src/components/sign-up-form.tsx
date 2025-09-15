@@ -43,16 +43,16 @@ const [phone, setPhone] = useState('') // เพิ่ม phone ใน data
         email,
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/chat`, // /protected -> /chat or Home
+          emailRedirectTo: `${window.location.origin}/chat`, // * /protected -> /chat or Home
           data: {
             display_name: displayName, // เพิ่ม display_name ใน data
             phone: phone, // เพิ่ม phone ใน data
-            role: !email ? 'user' : (email === 'admin@admin' ? 'admin' : 'user'), // เพิ่ม role ใน data
+            role: !email ? 'user' : (email === 'admin@admin' ? 'admin' : 'user'), // ! เพิ่ม role ใน data
         }
     },
       })
       if (error) throw error
-      router.push('/auth/login')
+      router.push('/auth/login') // ! แก้ protected ไป login
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : 'An error occurred')
     } finally {
