@@ -36,18 +36,118 @@ import {
 import { useRef, useState, useEffect } from "react"
 import { useChatContext } from "@/contexts/chat-context"
 import { DEFAULT_MODEL } from "@/constants/models"
+import { useChat } from "@ai-sdk/react"                                    // *
+import { createCustomChatTransport } from "@/lib/custom-chat-transport"   // *
+import { createClient } from "@/lib/client"                               // *
+
+interface MessageType {
+  id: string;                                                              // ID ของข้อความ
+  role: string;                                                            // บทบาทของผู้ส่ง (user/assistant)
+  parts: Array<{ type: string; text: string }>;                            // เนื้อหาข้อความแบบ parts
+}
 
 export function FullChatApp () {
 
   const [prompt, setPrompt] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
   const [selectedModel, setSelectedModel] = useState(DEFAULT_MODEL)
-  const { chatMessages, setChatMessages, showWelcome, setShowWelcome } = useChatContext()
+  const {showWelcome, setShowWelcome } = useChatContext()
   const chatContainerRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const [userId, setUserId] = useState<string>('')
+  const [sessionId, setSessionId] = useState<string | undefined>(undefined)
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false)
+  const [loadedMessages, setLoadedMessages] = useState<MessageType[]>([])
+
+  // ฟังก์ชันสำหรับโหลดประวัติข้อความจาก sessionId
+  const loadChatHistory = async (sessionIdToLoad: string) => {
+    // ตรวจสอบว่ามี sessionId หรือไม่
+    if (!sessionIdToLoad) return
+
+    // เริ่มแสดงสถานะ loading
+    setIsLoadingHistory(true)
+    
+    try {
+      // เรียก API เพื่อดึงประวัติการสนทนา
+      const response = await fetch(`/api/chat_05_history?sessionId=${sessionIdToLoad}`)
+      
+      // ตรวจสอบว่า API response สำเร็จหรือไม่
+      if (!response.ok) {
+        throw new Error('Failed to load chat history')
+      }
+      
+      // แยกข้อมูล JSON จาก response
+      const data = await response.json()
+      const loadedMessagesData = data.messages || []
+      
+      /**
+       * แปลงข้อความจาก database format เป็น UI format
+       * 
+       * Database Format: { id, role, content/text }
+       * UI Format: { id, role, parts: [{ type: 'text', text }] }
+       */
+      const formattedMessages = loadedMessagesData.map((msg: { 
+        id?: string; 
+        role?: string; 
+        content?: string; 
+        text?: string 
+      }, index: number) => ({
+        id: msg.id || `loaded-${index}`,                                     // ใช้ ID จาก DB หรือสร้างใหม่
+        role: msg.role || 'user',                                            // ใช้ role ที่ได้จาก API โดยตรง
+        parts: [{ type: 'text', text: msg.content || msg.text || '' }]       // แปลงเป็น parts format
+      }))
+      
+      // เก็บข้อความที่โหลดไว้ใน state
+      setLoadedMessages(formattedMessages)
+      console.log('Loaded messages:', formattedMessages)
+      
+    } catch (error) {
+      // จัดการข้อผิดพลาดที่เกิดขึ้น
+      console.error('Error loading chat history:', error)
+    } finally {
+      // หยุดแสดงสถานะ loading (ทำงานไม่ว่าจะสำเร็จหรือไม่)
+      setIsLoadingHistory(false)
+    }
+  }
+
+  const { messages, sendMessage, status, setMessages } = useChat({
+
+    transport: createCustomChatTransport({
+      api: '/api/chat_05_history',                                           // API endpoint สำหรับส่งข้อความ
+      onResponse: (response: Response) => {
+        const newSessionId = response.headers.get('x-session-id');           // ดึง session ID จาก header
+        if (newSessionId) {
+          console.log('Received new session ID:', newSessionId);
+          setSessionId(newSessionId);                                        // อัปเดต session ID ใน state
+          localStorage.setItem('currentSessionId', newSessionId);            // บันทึก sessionId ล่าสุดไว้ใน localStorage
+        }
+      },
+    }),
+  })
 
   // Focus textarea on component mount when on welcome screen
   useEffect(() => {
+
+    // โหลดประวัติการสนทนาเมื่อมี sessionId
+    if (sessionId) {
+      loadChatHistory(sessionId)
+    }
+
+    const supabase = createClient()
+
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser()              // ดึงข้อมูล user
+      if (user) {
+        setUserId(user.id)                                                   // เก็บ user ID
+        const savedSessionId = localStorage.getItem('currentSessionId')
+        if (savedSessionId && showWelcome) {
+          setSessionId(savedSessionId)                                       // ตั้งค่า session ID
+          setShowWelcome(false)                                              // ซ่อน welcome เพื่อแสดงประวัติ
+        }
+      }
+    }
+
+    getUser()
+
     if (showWelcome) {
       setTimeout(() => {
         textareaRef.current?.focus()
@@ -55,34 +155,27 @@ export function FullChatApp () {
     }
   }, [showWelcome])
 
+  
+  // ฟังก์ชันสำหรับจัดการการส่งข้อความ
   const handleSubmit = () => {
 
     if (!prompt.trim()) return
 
-    setPrompt("")
-    setIsLoading(true)
-    setShowWelcome(false)
-
-    // Add user message immediately
-    const newUserMessage = {
-      id: chatMessages.length + 1,
-      role: "user",
-      content: prompt.trim(),
+    const messageToSend = {
+      role: 'user' as const,
+      parts: [{ type: 'text' as const, text: prompt.trim() }],
     }
 
-    setChatMessages([...chatMessages, newUserMessage])
+    sendMessage(messageToSend, {
+      body: {
+        userId: userId,                                                      // ส่ง user ID สำหรับการระบุตัวตน
+        sessionId: sessionId,                                               // ส่ง session ID สำหรับความต่อเนื่อง
+      },
+    })
 
-    // Simulate API response
-    setTimeout(() => {
-      const assistantResponse = {
-        id: chatMessages.length + 2,
-        role: "assistant",
-        content: `นี่คือการตอบกลับสำหรับคำถาม: "${prompt.trim()}"\n\nขอบคุณที่ถามคำถาม! ฉันพร้อมช่วยเหลือคุณในเรื่องต่างๆ`,
-      }
-
-      setChatMessages((prev) => [...prev, assistantResponse])
-      setIsLoading(false)
-    }, 1500)
+    // รีเซ็ต UI state
+    setPrompt("")                                                            // ล้างข้อความใน input
+    setShowWelcome(false)
   }
 
   const handleSamplePrompt = (samplePrompt: string) => {
@@ -94,24 +187,31 @@ export function FullChatApp () {
       <header className="bg-background z-10 flex h-16 w-full shrink-0 items-center gap-2 border-b px-4">
         <SidebarTrigger className="-ml-1" />
         <div className="text-foreground flex-1">New Chat</div>
-        
+
         {/* Model Selector */}
         <ModelSelector
           selectedModel={selectedModel}
           onModelChange={setSelectedModel}
         />
+
       </header>
 
-      <div ref={chatContainerRef} className="relative flex-1 overflow-y-auto">
+            <div ref={chatContainerRef} className="relative flex-1 overflow-y-auto">
         <ChatContainerRoot className="h-full">
           <ChatContainerContent
             className={cn(
-              "px-5 py-12",
-              showWelcome ? "flex items-center justify-center h-full" : "space-y-0"
+              "p-4",
+              // แสดง welcome screen ตรงกลางเมื่อไม่มีข้อความ
+              (showWelcome && messages.length === 0 && loadedMessages.length === 0) 
+                ? "flex items-center justify-center h-full" 
+                : ""
             )}
           >
-            {showWelcome ? (
+            {/* Welcome Screen - หน้าต้อนรับสำหรับการสนทนาใหม่ */}
+            {(showWelcome && messages.length === 0 && loadedMessages.length === 0) ? (
               <div className="text-center max-w-2xl mx-auto">
+                
+                {/* AI Avatar และ Welcome Message */}
                 <div className="mb-8">
                   <div className="h-20 w-20 mx-auto mb-6 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center">
                     <span className="text-white font-bold text-2xl">AI</span>
@@ -125,8 +225,10 @@ export function FullChatApp () {
                   </p>
                 </div>
 
-                {/* Sample prompts */}
+                {/* Sample Prompts Grid - ตัวอย่างคำถามสำหรับ quick start */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+                  
+                  {/* Sample Prompt 1: CSS Grid Layout */}
                   <button
                     onClick={() =>
                       handleSamplePrompt(
@@ -143,6 +245,7 @@ export function FullChatApp () {
                     </div>
                   </button>
 
+                  {/* Sample Prompt 2: React Hooks */}
                   <button
                     onClick={() =>
                       handleSamplePrompt(
@@ -159,6 +262,7 @@ export function FullChatApp () {
                     </div>
                   </button>
 
+                  {/* Sample Prompt 3: API Design */}
                   <button
                     onClick={() =>
                       handleSamplePrompt(
@@ -175,6 +279,7 @@ export function FullChatApp () {
                     </div>
                   </button>
 
+                  {/* Sample Prompt 4: JavaScript Debugging */}
                   <button
                     onClick={() =>
                       handleSamplePrompt("Help me debug this JavaScript error")
@@ -191,115 +296,114 @@ export function FullChatApp () {
                 </div>
               </div>
             ) : (
-              // Chat messages display
-              <>
-                {chatMessages.map((message, index) => {
-                  const isAssistant = message.role === "assistant"
-                  const isLastMessage = index === chatMessages.length - 1
-
+              <div className="space-y-3 max-w-3xl mx-auto w-full">
+                
+                {/* รวม loadedMessages และ messages จาก useChat */}
+                {[...loadedMessages, ...messages].map((message, index) => {
+                  const isAssistant = message.role === "assistant"            // ตรวจสอบว่าเป็นข้อความจาก AI หรือไม่
+                  
                   return (
                     <Message
-                      key={message.id}
-                      className={cn(
-                        "mx-auto flex w-full max-w-3xl flex-col gap-2 px-6",
-                        isAssistant ? "items-start" : "items-end"
-                      )}
+                      key={`${message.id}-${index}`}                         // unique key สำหรับ React
+                      isAssistant={isAssistant}                              // ระบุประเภทข้อความ
+                      bubbleStyle={true}                                     // ใช้ bubble style
                     >
-                      {isAssistant ? (
-                        <div className="group flex w-full flex-col gap-0">
-                          <MessageContent
-                            className="text-foreground prose flex-1 rounded-lg bg-transparent p-0"
-                            markdown
+                      
+                      {/* Message Content - เนื้อหาข้อความ */}
+                      <MessageContent
+                        isAssistant={isAssistant}
+                        bubbleStyle={true}
+                        markdown                                             // แสดงเป็น markdown format
+                      >
+                        {/* แปลงข้อความจาก parts structure เป็น string */}
+                        {typeof message === 'object' && 'parts' in message && message.parts
+                          ? message.parts.map((part) => 
+                              'text' in part ? part.text : ''
+                            ).join('')
+                          : String(message)}
+                      </MessageContent>
+                      
+                      {/* Message Actions - ปุ่มสำหรับจัดการข้อความ */}
+                      <MessageActions
+                        isAssistant={isAssistant}
+                        bubbleStyle={true}
+                      >
+                        
+                        {/* Copy Button - ปุ่มสำหรับ copy ข้อความ */}
+                        <MessageAction tooltip="Copy" bubbleStyle={true}>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0 text-gray-500 hover:text-gray-700 rounded-full"
                           >
-                            {message.content}
-                          </MessageContent>
-                          <MessageActions
-                            className={cn(
-                              "-ml-2.5 flex gap-0 opacity-0 transition-opacity duration-150 group-hover:opacity-100",
-                              isLastMessage && "opacity-100"
-                            )}
-                          >
-                            <MessageAction tooltip="Copy" delayDuration={100}>
+                            <Copy size={14} />
+                          </Button>
+                        </MessageAction>
+                        
+                        {/* Assistant Message Actions - ปุ่มสำหรับข้อความจาก AI */}
+                        {isAssistant && (
+                          <>
+                            {/* Upvote Button */}
+                            <MessageAction tooltip="Upvote" bubbleStyle={true}>
                               <Button
                                 variant="ghost"
-                                size="icon"
-                                className="rounded-full"
+                                size="sm"
+                                className="h-7 w-7 p-0 text-gray-500 hover:text-gray-700 rounded-full"
                               >
-                                <Copy />
+                                <ThumbsUp size={14} />
                               </Button>
                             </MessageAction>
-                            <MessageAction tooltip="Upvote" delayDuration={100}>
+                            
+                            {/* Downvote Button */}
+                            <MessageAction tooltip="Downvote" bubbleStyle={true}>
                               <Button
                                 variant="ghost"
-                                size="icon"
-                                className="rounded-full"
+                                size="sm"
+                                className="h-7 w-7 p-0 text-gray-500 hover:text-gray-700 rounded-full"
                               >
-                                <ThumbsUp />
+                                <ThumbsDown size={14} />
                               </Button>
                             </MessageAction>
-                            <MessageAction
-                              tooltip="Downvote"
-                              delayDuration={100}
-                            >
+                          </>
+                        )}
+                        
+                        {/* User Message Actions - ปุ่มสำหรับข้อความจากผู้ใช้ */}
+                        {!isAssistant && (
+                          <>
+                            {/* Edit Button */}
+                            <MessageAction tooltip="Edit" bubbleStyle={true}>
                               <Button
                                 variant="ghost"
-                                size="icon"
-                                className="rounded-full"
+                                size="sm"
+                                className="h-7 w-7 p-0 text-gray-500 hover:text-gray-700 rounded-full"
                               >
-                                <ThumbsDown />
+                                <Pencil size={14} />
                               </Button>
                             </MessageAction>
-                          </MessageActions>
-                        </div>
-                      ) : (
-                        <div className="group w-full flex flex-col items-end gap-1">
-                          <MessageContent className="user-message bg-[#e5f3ff] text-primary max-w-[75%] rounded-3xl px-5 py-2.5 break-words whitespace-pre-wrap">
-                            {message.content}
-                          </MessageContent>
-                          <MessageActions
-                            className={cn(
-                              "flex gap-0 opacity-0 transition-opacity duration-150 group-hover:opacity-100"
-                            )}
-                          >
-                            <MessageAction tooltip="Edit" delayDuration={100}>
+                            
+                            {/* Delete Button */}
+                            <MessageAction tooltip="Delete" bubbleStyle={true}>
                               <Button
                                 variant="ghost"
-                                size="icon"
-                                className="rounded-full"
+                                size="sm"
+                                className="h-7 w-7 p-0 text-gray-500 hover:text-gray-700 rounded-full"
                               >
-                                <Pencil />
+                                <Trash size={14} />
                               </Button>
                             </MessageAction>
-                            <MessageAction tooltip="Delete" delayDuration={100}>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="rounded-full"
-                              >
-                                <Trash />
-                              </Button>
-                            </MessageAction>
-                            <MessageAction tooltip="Copy" delayDuration={100}>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="rounded-full"
-                              >
-                                <Copy />
-                              </Button>
-                            </MessageAction>
-                          </MessageActions>
-                        </div>
-                      )}
+                          </>
+                        )}
+                      </MessageActions>
                     </Message>
                   )
                 })}
-              </>
+              </div>
             )}
           </ChatContainerContent>
-          {!showWelcome && (
+          
+          {!(showWelcome && messages.length === 0 && loadedMessages.length === 0) && (
             <div className="absolute bottom-4 left-1/2 flex w-full max-w-3xl -translate-x-1/2 justify-end px-5">
-              <ScrollButton className="shadow-sm" />
+              <ScrollButton className="shadow-sm" />                        {/* ปุ่ม scroll to bottom */}
             </div>
           )}
         </ChatContainerRoot>
@@ -308,7 +412,7 @@ export function FullChatApp () {
       <div className="bg-background z-10 shrink-0 px-3 pb-3 md:px-5 md:pb-5">
         <div className="mx-auto max-w-3xl">
           <PromptInput
-            isLoading={isLoading}
+            isLoading={status !== 'ready'}
             value={prompt}
             onValueChange={setPrompt}
             onSubmit={handleSubmit}
@@ -363,11 +467,11 @@ export function FullChatApp () {
 
                   <Button
                     size="icon"
-                    disabled={!prompt.trim() || isLoading}
+                    disabled={!prompt.trim() || status !== 'ready' || !userId}
                     onClick={handleSubmit}
                     className="size-9 rounded-full"
                   >
-                    {!isLoading ? (
+                    { status === 'ready' ? (
                       <ArrowUp size={18} />
                     ) : (
                       <span className="size-3 rounded-xs bg-white" />
