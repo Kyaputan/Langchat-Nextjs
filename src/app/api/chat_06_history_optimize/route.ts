@@ -203,7 +203,7 @@ export async function POST(req: NextRequest) {
         const messageHistory = new PostgresChatMessageHistory({
             sessionId: currentSessionId!,
             tableName: 'chat_messages',
-            pool: new Pool({
+            pool: new Pool({   // ! ใช้ new Pool 2 รอบทำให้ช้า
                 host: process.env.PG_HOST,
                 port: Number(process.env.PG_PORT),
                 user: process.env.PG_USER,
@@ -257,7 +257,7 @@ export async function POST(req: NextRequest) {
             const overflow = fullHistory.filter(m => !windowSet.has(m))
             if (overflow.length > 0) {
                 const summarizerPrompt = ChatPromptTemplate.fromMessages([
-                    ['system', 'สรุปบทสนทนาให้สั้นที่สุด เป็นภาษาไทย เก็บเฉพาะสาระสำคัญ'],
+                    ['system', 'สรุปบทสนทนาให้สั้นที่สุด และเน้นเก็บเป็น Bullet Point เป็นภาษาไทย เก็บเฉพาะสาระสำคัญ'],
                     ['human', 'สรุปข้อความต่อไปนี้:\n\n{history}']
                 ])
                 const summarizer = summarizerPrompt.pipe(model).pipe(new StringOutputParser())
