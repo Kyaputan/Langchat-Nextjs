@@ -15,24 +15,21 @@ export default async function ChatLayout({
   if (error || !data?.user) {
     redirect('/auth/login')
   }
-  // if (data.user.user_metadata?.role === 'user') {
-  //   redirect('/')
-  // }
 
   const userInfo = {
     display_name: data.user.user_metadata?.display_name || data.user.email?.split('@')[0] || 'User',
     email: data.user.user_metadata?.email || data.user.email || '',
+    userId: data.user.id, // เพิ่ม userId
   }
 
   return (
-
-      <ChatProvider>
-        <SidebarProvider>
-          <ChatSidebar {...userInfo} />
-          <SidebarInset>
-            {children}
-          </SidebarInset>
-        </SidebarProvider>
-      </ChatProvider>
+    <ChatProvider>
+      <SidebarProvider>
+        <ChatSidebar {...userInfo} />
+        <SidebarInset>
+          {children}
+        </SidebarInset>
+      </SidebarProvider>
+    </ChatProvider>
   )
 }

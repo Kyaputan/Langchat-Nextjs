@@ -118,7 +118,7 @@ const samplePrompts: SamplePrompt[] = [
     }
 ]
 
-export function NewChat() {
+export function FullChatApp() {
   
   // ============================================================================
   // STEP 1: STATE DECLARATIONS - การประกาศตัวแปร State
