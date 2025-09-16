@@ -26,7 +26,7 @@
 // ============================================================================
 // IMPORTS - การนำเข้า Components และ Libraries ที่จำเป็น
 // ============================================================================
-import { useRef, useEffect } from "react"                                    // React hooks สำหรับ DOM และ lifecycle
+import { useRef, useEffect, useState } from "react"                                    // React hooks สำหรับ DOM และ lifecycle
 import {
     ChatContainerContent,
     ChatContainerRoot,
@@ -59,7 +59,8 @@ import {
     ThumbsUp,
     Trash,
 } from "lucide-react"                                                        // Icons จาก Lucide React
-
+import { ModelSelector } from "./model-selector"                              // Dropdown สำหรับเลือกโมเดล AI
+import { DEFAULT_MODEL } from "@/constants/models"
 // ============================================================================
 // TypeScript Interface Definitions - กำหนด Type Definitions
 // ============================================================================
@@ -212,6 +213,9 @@ export function ChatHistory({ sessionId, title, userId }: ChatHistoryProps) {
      * - ข้อความแจ้งให้ login
      * - Layout ที่สอดคล้องกับหน้าหลัก
      */
+
+    const [selectedModel, setSelectedModel] = useState(DEFAULT_MODEL)  
+    
     if (!userId) {
         return (
             <main className="flex h-screen flex-col overflow-hidden">
@@ -219,7 +223,8 @@ export function ChatHistory({ sessionId, title, userId }: ChatHistoryProps) {
                 <header className="bg-background z-10 flex h-16 w-full shrink-0 items-center gap-2 border-b px-4">
                     <SidebarTrigger className="-ml-1" />                              {/* ปุ่มเปิด/ปิด sidebar */}
                     <div className="text-foreground flex-1">{title}</div>             {/* ชื่อหน้าจาก props */}
-                </header>
+
+                </header>   
 
                 {/* Content Section - ส่วนเนื้อหาหลัก */}
                 <div className="flex-1 flex items-center justify-center">
@@ -266,6 +271,11 @@ export function ChatHistory({ sessionId, title, userId }: ChatHistoryProps) {
             <header className="bg-background z-10 flex h-16 w-full shrink-0 items-center gap-2 border-b px-4">
                 <SidebarTrigger className="-ml-1" />                                {/* ปุ่มเปิด/ปิด sidebar */}
                 <div className="text-foreground flex-1">{title}</div>               {/* ชื่อหน้าจาก props */}
+
+                <ModelSelector
+                    selectedModel={selectedModel}
+                    onModelChange={setSelectedModel}
+                />
             </header>
 
             {/* ============================================================================ */}

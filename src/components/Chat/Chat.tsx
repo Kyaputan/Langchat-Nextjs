@@ -198,7 +198,7 @@ export function FullChatApp() {
     
     try {
       // เรียก API เพื่อดึงประวัติการสนทนา
-      const response = await fetch(`/api/chat_05_history?sessionId=${sessionIdToLoad}`)
+      const response = await fetch(`/api/chat_06_history_optimize?sessionId=${sessionIdToLoad}`)
       
       // ตรวจสอบว่า API response สำเร็จหรือไม่
       if (!response.ok) {
@@ -268,7 +268,7 @@ export function FullChatApp() {
      * - บันทึก session ID ไว้ใน localStorage
      */
     transport: createCustomChatTransport({
-      api: '/api/chat_05_history',                                           // API endpoint สำหรับส่งข้อความ
+      api: '/api/chat_06_history_optimize',                                           // API endpoint สำหรับส่งข้อความ
       
       /**
        * Callback function ที่ทำงานเมื่อได้รับ response
