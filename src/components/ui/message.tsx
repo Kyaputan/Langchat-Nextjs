@@ -22,7 +22,7 @@ const Message = ({ children, className, isAssistant = false, bubbleStyle = false
       return (
         <div 
           className={cn(
-            "group w-full",
+            "group w-full", // ! ช่องแชทบอท
             className
           )} 
           {...props}
@@ -35,7 +35,7 @@ const Message = ({ children, className, isAssistant = false, bubbleStyle = false
       return (
         <div 
           className={cn(
-            "group flex flex-col items-end",
+            "group flex flex-col items-end", // * ช่องแชทผู้ใช้
             className
           )} 
           {...props}
@@ -101,7 +101,7 @@ const MessageContent = ({
     if (isAssistant) {
       // AI messages: เต็มความกว้าง
       classNames = cn(
-        "w-full px-4 py-3 mb-1 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 rounded-lg shadow-sm",
+        "w-full px-4 py-3 mb-1 dark:bg-transparent text-gray-800 dark:text-gray-100",
         "[&_ul]:space-y-0 [&_ol]:space-y-0 [&_li]:my-0 [&_li]:py-0.5",
         "prose prose-li:my-0 prose-ul:my-2 prose-ol:my-2 prose-p:my-2",
         "dark:prose-invert dark:prose-headings:text-gray-100 dark:prose-p:text-gray-100 dark:prose-li:text-gray-100",
@@ -110,7 +110,7 @@ const MessageContent = ({
     } else {
       // User messages: แบบ bubble
       classNames = cn(
-        "max-w-xs sm:max-w-md lg:max-w-lg xl:max-w-xl px-4 py-3 mb-1 rounded-2xl shadow-sm whitespace-pre-wrap bg-blue-500 text-white rounded-br-md",
+        "user-message bg-[#e5f3ff] text-primary max-w-[75%] rounded-3xl px-5 py-2.5 break-words whitespace-pre-wrap",
         className
       )
     }
