@@ -1,9 +1,9 @@
 // *> ไฟล์นี้เป็นการจัดการ API endpoint URLs และฟังก์ชันช่วยเหลือสำหรับการสร้าง URL พร้อม query parameters
 
 
-export const API_BASE = '/api/chat_06_history_optimistic'
+export const API_BASE = '/api/chat_07_tool_calling_postgres'
 
-export const API_BASE_SESSION = '/api/chat_06_history_optimistic/session'
+export const API_BASE_SESSION = '/api/chat_07_tool_calling_postgres/session'
 
 export function buildApiUrl(endpoint: string, params?: Record<string, string | number | boolean>): string {
     if (!params || Object.keys(params).length === 0) {
