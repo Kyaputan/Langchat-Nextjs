@@ -31,6 +31,17 @@ import { getDatabase } from '@/lib/database'
 // Route Configuration - การตั้งค่า Route
 // ===============================================
 
+interface ChatMessageRow {
+  message: {
+    content?: string;
+    text?: string;
+    message?: string;
+    type?: string;
+  };
+  message_type: string;
+  created_at: string;
+}
+
 /**
  * Runtime Configuration
  * กำหนดให้ API นี้ทำงานแบบ Node.js Runtime เพื่อรองรับ PostgreSQL
@@ -439,7 +450,16 @@ export async function GET(req: NextRequest) {
        * 3. ดึง content จาก JSON message field
        * 4. สร้าง object ในรูปแบบที่ UI เข้าใจ
        */
-      const messages = result.rows.map((row: any, index: number) => {
+
+      // ===============================================
+// Type Definitions - การกำหนด Types
+// ===============================================
+/**
+ * Interface สำหรับ database row ที่ได้จาก query chat_messages
+ */
+
+
+      const messages = result.rows.map((row: ChatMessageRow, index: number) => {
         const messageData = row.message                                     // ข้อมูล message ในรูปแบบ JSON
         
         /**
