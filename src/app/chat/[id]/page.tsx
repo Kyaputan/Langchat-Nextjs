@@ -26,12 +26,12 @@
 import { createClient } from "@/lib/server"
 import { redirect } from "next/navigation"
 import { ChatHistory } from "@/components/ChatArea/chat-history"
-import { Pool } from 'pg'
-
+// import { Pool } from 'pg'
+import { getDatabase } from '@/lib/database'
 // ===============================================
 // Database Connection Pool Setup - ตั้งค่าการเชื่อมต่อฐานข้อมูล
 // ===============================================
-
+const pool = getDatabase()
 /**
  * สร้าง PostgreSQL connection pool สำหรับจัดการการเชื่อมต่อฐานข้อมูล
  * 
@@ -49,14 +49,14 @@ import { Pool } from 'pg'
  * - database: ชื่อฐานข้อมูล
  * - ssl: การตั้งค่า SSL สำหรับ production
  */
-const pool = new Pool({
-  host: process.env.PG_HOST,                                                // ที่อยู่ PostgreSQL server
-  port: Number(process.env.PG_PORT),                                       // port ของ PostgreSQL
-  user: process.env.PG_USER,                                               // username สำหรับเชื่อมต่อ
-  password: process.env.PG_PASSWORD,                                       // password สำหรับเชื่อมต่อ
-  database: process.env.PG_DATABASE,                                       // ชื่อฐานข้อมูล
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false, // SSL config สำหรับ production
-})
+// ! const pool = new Pool({
+//   host: process.env.PG_HOST,                                                // ที่อยู่ PostgreSQL server
+//   port: Number(process.env.PG_PORT),                                       // port ของ PostgreSQL
+//   user: process.env.PG_USER,                                               // username สำหรับเชื่อมต่อ
+//   password: process.env.PG_PASSWORD,                                       // password สำหรับเชื่อมต่อ
+//   database: process.env.PG_DATABASE,                                       // ชื่อฐานข้อมูล
+//   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false, // SSL config สำหรับ production
+// })
 
 // ===============================================
 // TypeScript Interface Definitions - กำหนด Type Definitions
@@ -165,7 +165,7 @@ export default async function HistoryChatPage({ params }: ChatPageProps) {
      * - ตรวจสอบว่า user เป็นเจ้าของ session
      * - ดึงข้อมูล title ของ session
      */
-    const client = await pool.connect()                                     // เชื่อมต่อ database
+     const client = await pool.connect()                                     // เชื่อมต่อ database
     try {
       /**
        * Query ข้อมูล chat session
