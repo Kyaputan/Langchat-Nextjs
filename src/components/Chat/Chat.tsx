@@ -46,15 +46,13 @@ import { ModelSelector } from "@/components/ChatArea/model-selector"            
 import { cn } from "@/lib/utils"                                            // Utility สำหรับจัดการ CSS classes
 import {
   ArrowUp,
+  Check,
   Copy,
   Globe,
   Mic,
   MoreHorizontal,
-  Pencil,
   Plus,
-  ThumbsDown,
-  ThumbsUp,
-  Trash,
+  Square,
 } from "lucide-react"                                                        // Icons จาก Lucide React
 import { useRef, useState, useEffect } from "react"                          // React Hooks
 import { useChatContext } from "@/contexts/chat-context"                     // Context สำหรับจัดการสถานะ chat
@@ -87,65 +85,71 @@ interface SamplePrompt {
 
 // Sample Prompt Data
 const samplePrompts: SamplePrompt[] = [
-  {
-    title: 'สรุปข้อมูลจากบทความ',
-    prompt: 'สามารถช่วยสรุปสาระสำคัญจากบทความที่ฉันให้มาได้ไหม?',
-    icon: '📋'
-  },
-  {
-    title: 'เขียนโค้ดให้ทำงาน',
-    prompt: 'ช่วยเขียนโค้ด Python สำหรับการอ่านไฟล์ CSV และแสดงข้อมูลเป็นกราฟ',
-    icon: '💻'
-  },
-  {
-    title: 'แปลภาษา',
-    prompt: 'ช่วยแปลข้อความนี้จากภาษาไทยเป็นภาษาอังกฤษ',
-    icon: '🌐'
-  },
-  {
-    title: 'วิเคราะห์ข้อมูล',
-    prompt: 'ช่วยวิเคราะห์ข้อมูลการขายของบริษัทในไตรมาสที่ผ่านมา',
-    icon: '📊'
-  },
-  {
-    title: 'เขียนอีเมล์',
-    prompt: 'ช่วยเขียนอีเมล์สำหรับขอนัดหมายประชุมกับลูกค้า',
-    icon: '✉️'
-  },
-  {
-    title: 'แก้ไขข้อผิดพลาด',
-    prompt: 'โค้ดของฉันมีข้อผิดพลาด สามารถช่วยหาและแก้ไขได้ไหม?',
-    icon: '🐛'
-  }
+    {
+      title: 'สรุปข้อมูลจากบทความ',
+      prompt: 'สามารถช่วยสรุปสาระสำคัญจากบทความที่ฉันให้มาได้ไหม?',
+      icon: '📋'
+    },
+    {
+      title: 'เขียนโค้ดให้ทำงาน',
+      prompt: 'ช่วยเขียนโค้ด Python สำหรับการอ่านไฟล์ CSV และแสดงข้อมูลเป็นกราฟ',
+      icon: '💻'
+    },
+    {
+      title: 'แปลภาษา',
+      prompt: 'ช่วยแปลข้อความนี้จากภาษาไทยเป็นภาษาอังกฤษ',
+      icon: '🌐'
+    },
+    {
+      title: 'วิเคราะห์ข้อมูล',
+      prompt: 'ช่วยวิเคราะห์ข้อมูลการขายของบริษัทในไตรมาสที่ผ่านมา',
+      icon: '📊'
+    },
+    {
+      title: 'เขียนอีเมล์',
+      prompt: 'ช่วยเขียนอีเมล์สำหรับขอนัดหมายประชุมกับลูกค้า',
+      icon: '✉️'
+    },
+    {
+      title: 'แก้ไขข้อผิดพลาด',
+      prompt: 'โค้ดของฉันมีข้อผิดพลาด สามารถช่วยหาและแก้ไขได้ไหม?',
+      icon: '🐛'
+    }
 ]
 
 export function FullChatApp() {
-
+  
   // ============================================================================
   // STEP 1: STATE DECLARATIONS - การประกาศตัวแปร State
   // ============================================================================
 
   const [selectedModel, setSelectedModel] = useState(DEFAULT_MODEL)               // โมเดล AI ที่เลือก (ค่าเริ่มต้นจาก constants)
-
+  
   /**
    * ข้อความที่ผู้ใช้พิมพ์ในช่อง input
    * ใช้สำหรับเก็บข้อความที่จะส่งไปยัง AI
    */
   const [prompt, setPrompt] = useState("")
-
+  
   /**
    * สถานะการแสดงหน้า Welcome และฟังก์ชันสำหรับเปลี่ยนสถานะ
    * มาจาก ChatContext ที่ใช้ร่วมกันในทั้งแอปพลิเคชัน
    */
   const { showWelcome, setShowWelcome } = useChatContext()
-
+  
   /**
    * Reference สำหรับ DOM elements ที่ต้องการ access โดยตรง
    * ใช้สำหรับการ scroll และ focus
    */
   const chatContainerRef = useRef<HTMLDivElement>(null)                      // Container สำหรับข้อความ chat
   const textareaRef = useRef<HTMLTextAreaElement>(null)                      // Textarea สำหรับพิมพ์ข้อความ
-
+  
+  /**
+   * State สำหรับติดตาม copy status ของแต่ละข้อความ
+   * key: message id, value: boolean (true = เพิ่งกด copy)
+   */
+  const [copiedMessages, setCopiedMessages] = useState<Record<string, boolean>>({})
+  
   /**
    * ID ของผู้ใช้ที่ล็อกอินอยู่ในปัจจุบัน
    * ใช้สำหรับการระบุตัวตนและบันทึกข้อมูล
@@ -157,13 +161,13 @@ export function FullChatApp() {
    * ใช้สำหรับเก็บประวัติการสนทนาและความต่อเนื่อง
    */
   const [sessionId, setSessionId] = useState<string | undefined>(undefined)
-
+  
   /**
    * สถานะการโหลดประวัติการสนทนา
    * แสดงข้อความ loading เมื่อกำลังดึงข้อมูลจาก database
    */
   const [isLoadingHistory, setIsLoadingHistory] = useState(false)
-
+  
   /**
    * ข้อความที่โหลดมาจากประวัติการสนทนาใน database
    * เก็บข้อความที่ดึงมาจาก session เก่าเพื่อแสดงต่อจากที่เหลือ
@@ -180,42 +184,42 @@ export function FullChatApp() {
 
     // เริ่มแสดงสถานะ loading
     setIsLoadingHistory(true)
-
+    
     try {
       // เรียก API เพื่อดึงประวัติการสนทนา
       const apiUrl = buildApiUrl(API_BASE, { sessionId: sessionIdToLoad })
       const response = await fetch(apiUrl)
-
+      
       // ตรวจสอบว่า API response สำเร็จหรือไม่
       if (!response.ok) {
         throw new Error('Failed to load chat history')
       }
-
+      
       // แยกข้อมูล JSON จาก response
       const data = await response.json()
       const loadedMessagesData = data.messages || []
-
+      
       /**
        * แปลงข้อความจาก database format เป็น UI format
        * 
        * Database Format: { id, role, content/text }
        * UI Format: { id, role, parts: [{ type: 'text', text }] }
        */
-      const formattedMessages = loadedMessagesData.map((msg: {
-        id?: string;
-        role?: string;
-        content?: string;
-        text?: string
+      const formattedMessages = loadedMessagesData.map((msg: { 
+        id?: string; 
+        role?: string; 
+        content?: string; 
+        text?: string 
       }, index: number) => ({
         id: msg.id || `loaded-${index}`,                                     // ใช้ ID จาก DB หรือสร้างใหม่
         role: msg.role || 'user',                                            // ใช้ role ที่ได้จาก API โดยตรง
         parts: [{ type: 'text', text: msg.content || msg.text || '' }]       // แปลงเป็น parts format
       }))
-
+      
       // เก็บข้อความที่โหลดไว้ใน state
       setLoadedMessages(formattedMessages)
       console.log('Loaded messages:', formattedMessages)
-
+      
     } catch (error) {
       // จัดการข้อผิดพลาดที่เกิดขึ้น
       console.error('Error loading chat history:', error)
@@ -228,11 +232,11 @@ export function FullChatApp() {
   // ============================================================================
   // STEP 3: CHAT HOOK INITIALIZATION - การตั้งค่า useChat Hook
   // ============================================================================
-  const { messages, sendMessage, status, setMessages } = useChat({
+  const { messages, sendMessage, status, setMessages, stop } = useChat({
 
     transport: createCustomChatTransport({
       api: API_BASE,                                                        // API endpoint สำหรับส่งข้อความ
-
+      
       onResponse: (response: Response) => {
         const newSessionId = response.headers.get('x-session-id');           // ดึง session ID จาก header
         if (newSessionId) {
@@ -344,6 +348,28 @@ export function FullChatApp() {
     setPrompt(samplePrompt)                                                  // ตั้งค่าข้อความใน input
   }
 
+  const handleStop = () => {
+    stop()                                                                   // หยุดการส่งข้อความ
+  }
+
+  const handleCopyMessage = async (content: string, messageId: string) => {
+    try {
+      await navigator.clipboard.writeText(content)
+      
+      // แสดง check icon
+      setCopiedMessages(prev => ({ ...prev, [messageId]: true }))
+      
+      // กลับไปเป็น copy icon หลังจาก 2 วินาที
+      setTimeout(() => {
+        setCopiedMessages(prev => ({ ...prev, [messageId]: false }))
+      }, 2000)
+      
+      console.log('Message copied to clipboard')
+    } catch (error) {
+      console.error('Failed to copy message:', error)
+    }
+  }
+
   // ============================================================================
   // STEP 9: AUTHENTICATION GUARD - การตรวจสอบสิทธิ์การเข้าถึง
   // ============================================================================
@@ -355,7 +381,7 @@ export function FullChatApp() {
           <SidebarTrigger className="-ml-1" />                              {/* ปุ่มเปิด/ปิด sidebar */}
           <div className="text-foreground flex-1">New Chat</div>            {/* ชื่อหน้า */}
         </header>
-
+        
         {/* Content Section - ส่วนเนื้อหาหลัก */}
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
@@ -372,15 +398,15 @@ export function FullChatApp() {
   // ============================================================================
   return (
     <main className="flex h-screen flex-col overflow-hidden">
-
+      
       {/* ============================================================================ */}
       {/* HEADER SECTION - ส่วนหัวของหน้า */}
       {/* ============================================================================ */}
-
+      
       <header className="bg-background z-10 flex h-16 w-full shrink-0 items-center gap-2 border-b px-4">
         <SidebarTrigger className="-ml-1" />                                {/* ปุ่มเปิด/ปิด sidebar */}
         <div className="text-foreground flex-1">New Chat</div>              {/* ชื่อหน้า */}
-
+        
         {/* Model Selector */}
         <ModelSelector
           selectedModel={selectedModel}
@@ -391,22 +417,22 @@ export function FullChatApp() {
       {/* ============================================================================ */}
       {/* CHAT CONTAINER SECTION - ส่วนแสดงข้อความการสนทนา */}
       {/* ============================================================================ */}
-
+      
       <div ref={chatContainerRef} className="relative flex-1 overflow-hidden">
         <ChatContainerRoot className="h-full">
           <ChatContainerContent
             className={cn(
               "p-4",
               // แสดง welcome screen ตรงกลางเมื่อไม่มีข้อความ
-              (showWelcome && messages.length === 0 && loadedMessages.length === 0)
-                ? "flex items-center justify-center h-full"
+              (showWelcome && messages.length === 0 && loadedMessages.length === 0) 
+                ? "flex items-center justify-center h-full" 
                 : ""
             )}
           >
             {/* ============================================================================ */}
             {/* CONDITIONAL CONTENT - เนื้อหาที่แสดงตามสถานะ */}
             {/* ============================================================================ */}
-
+            
             {/* Welcome Screen - หน้าต้อนรับสำหรับการสนทนาใหม่ */}
             {(showWelcome && messages.length === 0 && loadedMessages.length === 0) ? (
               /**
@@ -418,7 +444,7 @@ export function FullChatApp() {
                * 3. Interactive Buttons สำหรับ quick start
                */
               <div className="text-center max-w-3xl mx-auto">
-
+                
                 {/* AI Avatar และ Welcome Message */}
                 <div className="mb-8">
                   <div className="h-20 w-20 mx-auto mb-6 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center">
@@ -429,14 +455,14 @@ export function FullChatApp() {
                   </h1>
                   <p className="text-lg text-slate-600 dark:text-slate-400 mb-8">
                     ยินดีต้อนรับสู่ AI Chatbot ที่ขับเคลื่อนด้วย LangChain และ OpenAI
-                    ฉันพร้อมช่วยคุณในหลากหลายงาน เริ่มต้นด้วยตัวอย่างด้านล่างหรือพิมพ์คำถามของคุณเลย
+          ฉันพร้อมช่วยคุณในหลากหลายงาน เริ่มต้นด้วยตัวอย่างด้านล่างหรือพิมพ์คำถามของคุณเลย
                   </p>
                 </div>
 
                 {/* Sample Prompts Grid - ตัวอย่างคำถามสำหรับ quick start */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                   {samplePrompts.map((sample, index) => (
-                    <button
+                    <button 
                       key={index}
                       onClick={() => handleSamplePrompt(sample.prompt)}          // ใส่ prompt เมื่อคลิก
                       className="bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 rounded-lg p-4 text-left transition"
@@ -459,28 +485,33 @@ export function FullChatApp() {
                   if (!sessionId || loadedMessages.length === 0) {
                     return messages
                   }
-
+                  
                   // สำหรับ chat ที่มีประวัติ ให้รวมกันโดยกรองซ้ำ
                   const allMessages = [...loadedMessages, ...messages]
                   const uniqueMessages = []
                   const seenContent = new Set()
-
+                  
                   for (const message of allMessages) {
                     const content = typeof message === 'object' && 'parts' in message && message.parts
                       ? message.parts.map((part) => 'text' in part ? part.text : '').join('')
                       : String(message)
-
+                    
                     const key = `${message.role}-${content}`
                     if (!seenContent.has(key)) {
                       seenContent.add(key)
                       uniqueMessages.push(message)
                     }
                   }
-
+                  
                   return uniqueMessages
                 })().map((message, index) => {
                   const isAssistant = message.role === "assistant"
-
+                  
+                  // คำนวณ content สำหรับใช้ใน copy function
+                  const messageContent = typeof message === 'object' && 'parts' in message && message.parts
+                    ? message.parts.map((part) => 'text' in part ? part.text : '').join('')
+                    : String(message)
+                  
                   return (
                     <Message
                       key={`${message.id}-${index}`}
@@ -490,15 +521,11 @@ export function FullChatApp() {
                       <MessageContent
                         isAssistant={isAssistant}
                         bubbleStyle={true}
-                        markdown // แสดงเป็น markdown format
+                        markdown={isAssistant} // แสดง markdown เฉพาะ assistant เท่านั้น
                       >
-                        {typeof message === 'object' && 'parts' in message && message.parts
-                          ? message.parts.map((part) =>
-                            'text' in part ? part.text : ''
-                          ).join('')
-                          : String(message)}
+                        {messageContent}
                       </MessageContent>
-
+                      
                       <MessageActions
                         isAssistant={isAssistant}
                         bubbleStyle={true}
@@ -508,56 +535,15 @@ export function FullChatApp() {
                             variant="ghost"
                             size="sm"
                             className="h-7 w-7 p-0 text-gray-500 hover:text-gray-700 rounded-full"
+                            onClick={() => handleCopyMessage(messageContent, message.id)}
                           >
-                            <Copy size={14} />
+                            {copiedMessages[message.id] ? (
+                              <Check size={14} className="text-green-600" />
+                            ) : (
+                              <Copy size={14} />
+                            )}
                           </Button>
                         </MessageAction>
-
-                        {isAssistant && (
-                          <>
-                            <MessageAction tooltip="Upvote" bubbleStyle={true}>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-7 w-7 p-0 text-gray-500 hover:text-gray-700 rounded-full"
-                              >
-                                <ThumbsUp size={14} />
-                              </Button>
-                            </MessageAction>
-                            <MessageAction tooltip="Downvote" bubbleStyle={true}>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-7 w-7 p-0 text-gray-500 hover:text-gray-700 rounded-full"
-                              >
-                                <ThumbsDown size={14} />
-                              </Button>
-                            </MessageAction>
-                          </>
-                        )}
-
-                        {!isAssistant && (
-                          <>
-                            <MessageAction tooltip="Edit" bubbleStyle={true}>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-7 w-7 p-0 text-gray-500 hover:text-gray-700 rounded-full"
-                              >
-                                <Pencil size={14} />
-                              </Button>
-                            </MessageAction>
-                            <MessageAction tooltip="Delete" bubbleStyle={true}>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-7 w-7 p-0 text-gray-500 hover:text-gray-700 rounded-full"
-                              >
-                                <Trash size={14} />
-                              </Button>
-                            </MessageAction>
-                          </>
-                        )}
                       </MessageActions>
                     </Message>
                   )
@@ -565,11 +551,11 @@ export function FullChatApp() {
               </div>
             )}
           </ChatContainerContent>
-
+          
           {/* ============================================================================ */}
           {/* SCROLL BUTTON - ปุ่มสำหรับ scroll ไปข้างล่าง */}
           {/* ============================================================================ */}
-
+          
           {/* แสดง scroll button เฉพาะเมื่อไม่ใช่ welcome screen */}
           {!(showWelcome && messages.length === 0 && loadedMessages.length === 0) && (
             <div className="absolute bottom-4 left-1/2 flex w-full max-w-3xl -translate-x-1/2 justify-end px-5">
@@ -582,24 +568,24 @@ export function FullChatApp() {
       {/* ============================================================================ */}
       {/* INPUT SECTION - ส่วนรับ input จากผู้ใช้ */}
       {/* ============================================================================ */}
-
-      <div className="bg-background z-10 shrink-0 px-3 pb-3 md:px-5 md:pb-5">
+      
+      <div className="bg-background z-[5] shrink-0 px-3 pb-3 md:px-5 md:pb-5">
         <div className="mx-auto max-w-3xl">
-
+          
           {/* ============================================================================ */}
           {/* STATUS INDICATORS - แสดงสถานะต่างๆ */}
           {/* ============================================================================ */}
-
+          
           {/* แสดงสถานะการพิมพ์ของ AI */}
-          {(status === 'submitted' || status === 'streaming') &&
+          {(status === 'submitted' || status === 'streaming') && 
             <div className="text-gray-500 italic mb-2 text-sm">🤔 AI กำลังคิด...</div>
           }
-
+          
           {/* แสดงสถานะการโหลดประวัติ */}
-          {isLoadingHistory &&
+          {isLoadingHistory && 
             <div className="text-blue-500 italic mb-2 text-sm">📚 กำลังโหลดประวัติการสนทนา...</div>
           }
-
+          
           {/* ============================================================================ */}
           {/* PROMPT INPUT COMPONENT - ส่วน input หลัก */}
           {/* ============================================================================ */}
@@ -611,11 +597,11 @@ export function FullChatApp() {
             className="border-input bg-popover relative z-10 w-full rounded-3xl border p-0 pt-1 shadow-xs"
           >
             <div className="flex flex-col">
-
+              
               {/* ============================================================================ */}
               {/* TEXTAREA INPUT - ช่องพิมพ์ข้อความ */}
               {/* ============================================================================ */}
-
+              
               <PromptInputTextarea
                 ref={textareaRef}
                 placeholder="Ask anything to start a new chat..."
@@ -627,10 +613,10 @@ export function FullChatApp() {
               {/* ============================================================================ */}
 
               <PromptInputActions className="mt-5 flex w-full items-center justify-between gap-2 px-3 pb-3">
-
+                
                 {/* Left Actions Group - กลุ่มปุ่มด้านซ้าย */}
                 <div className="flex items-center gap-2">
-
+                  
                   {/* Add Action Button - ปุ่มเพิ่ม action */}
                   <PromptInputAction tooltip="Add a new action">
                     <Button
@@ -661,10 +647,10 @@ export function FullChatApp() {
                     </Button>
                   </PromptInputAction>
                 </div>
-
+                
                 {/* Right Actions Group - กลุ่มปุ่มด้านขวา */}
                 <div className="flex items-center gap-2">
-
+                  
                   {/* Voice Input Button - ปุ่ม voice input */}
                   <PromptInputAction tooltip="Voice input">
                     <Button
@@ -676,19 +662,28 @@ export function FullChatApp() {
                     </Button>
                   </PromptInputAction>
 
-                  {/* Send Button - ปุ่มส่งข้อความ */}
+                  {/* Send/Stop Button - ปุ่มส่งข้อความหรือหยุด */}
                   <Button
                     size="icon"
-                    disabled={!prompt.trim() || status !== 'ready' || !userId}
-                    onClick={handleSubmit}
+                    disabled={
+                      (status === 'ready' && (!prompt.trim() || !userId)) ||
+                      (status !== 'ready' && status !== 'streaming' && status !== 'submitted')
+                    }
+                    onClick={
+                      status === 'ready' ? handleSubmit : handleStop
+                    }
                     className="size-9 rounded-full"
+                    variant={status === 'ready' ? 'default' : 'destructive'}
                   >
                     {/* แสดง icon ตาม status */}
                     {status === 'ready' ? (
                       /* แสดงลูกศรเมื่อพร้อม */
                       <ArrowUp size={18} />
+                    ) : status === 'streaming' || status === 'submitted' ? (
+                      /* แสดงปุ่ม stop เมื่อกำลังส่ง */
+                      <Square size={18} fill="currentColor" />
                     ) : (
-                      /* แสดง loading indicator */
+                      /* แสดง loading indicator สำหรับ status อื่นๆ */
                       <span className="size-3 rounded-xs bg-white" />
                     )}
                   </Button>

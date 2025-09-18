@@ -22,7 +22,7 @@ const Message = ({ children, className, isAssistant = false, bubbleStyle = false
       return (
         <div 
           className={cn(
-            "group w-full", // ! ช่องแชทบอท
+            "group w-full",
             className
           )} 
           {...props}
@@ -35,7 +35,7 @@ const Message = ({ children, className, isAssistant = false, bubbleStyle = false
       return (
         <div 
           className={cn(
-            "group flex flex-col items-end", // * ช่องแชทผู้ใช้
+            "group flex flex-col items-end",
             className
           )} 
           {...props}
@@ -152,18 +152,18 @@ const MessageActions = ({
     if (isAssistant) {
       // AI messages: ชิดซ้าย
       classNames = cn(
-        "flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity mb-2 justify-start ml-2",
+        "flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity mb-2 justify-start ml-2 relative z-10",
         className
       )
     } else {
       // User messages: ชิดขวา
       classNames = cn(
-        "flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity mb-2 justify-end mr-2",
+        "flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity mb-2 justify-end mr-2 relative z-10",
         className
       )
     }
   } else {
-    classNames = cn("text-muted-foreground flex items-center gap-2", className)
+    classNames = cn("text-muted-foreground flex items-center gap-2 relative z-10", className)
   }
   
   return (
